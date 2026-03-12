@@ -1,1 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Ultimate Clicker V2</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
+<h1>💰 Ultimate Clicker V2</h1>
+
+<div class="stats">
+  <h2>Coins: <span id="score">0</span></h2>
+  <h3>💎 Gems: <span id="gems">0</span></h3>
+  <h3>⭐ Level: <span id="level">1</span></h3>
+</div>
+
+<button id="clickBtn">CLICK</button>
+
+<div class="shop">
+  <h2>🏪 Shop</h2>
+
+  <div class="upgrade">
+    <p>⬆️ Click Power (+1)</p>
+    <p>Cost: <span id="powerCost">10</span></p>
+    <button onclick="buyPower()">Buy</button>
+  </div>
+
+  <div class="upgrade">
+    <p>🤖 Auto Clicker (+1/sec)</p>
+    <p>Cost: <span id="autoCost">50</span></p>
+    <button onclick="buyAuto()">Buy</button>
+  </div>
+
+  <div class="upgrade">
+    <p>🏭 Factory (+10/sec)</p>
+    <p>Cost: <span id="factoryCost">500</span></p>
+    <button onclick="buyFactory()">Buy</button>
+  </div>
+
+  <div class="upgrade">
+    <p>🐱 Pet Helper (+2 click power)</p>
+    <p>Cost: <span id="petCost">200</span></p>
+    <button onclick="buyPet()">Buy</button>
+  </div>
+
+  <div class="upgrade">
+    <button onclick="prestige()">⭐ Prestige</button>
+  </div>
+</div>
+
+<div id="achievements">
+<h2>🏆 Achievements</h2>
+<p id="ach1">❌ 100 Coins</p>
+<p id="ach2">❌ 1000 Coins</p>
+<p id="ach3">❌ 10 Gems</p>
+</div>
+
+<audio id="clickSound" src="assets/click.mp3"></audio>
+
+<script src="script.js"></script>
+</body>
+</html>body{
+  font-family: Arial, sans-serif;
+  background:#0f172a;
+  color:white;
+  text-align:center;
+  margin:0;
+  padding:0;
+}
+
+h1{margin-top:20px;}
+button{
+  padding:20px 40px;
+  font-size:24px;
+  border:none;
+  border-radius:12px;
+  background:#22c55e;
+  color:white;
+  cursor:pointer;
+}
+
+button:hover{background:#16a34a;}
+.shop{
+  margin-top:30px;
+}
+.upgrade{
+  background:#1e293b;
+  padding:15px;
+  margin:10px auto;
+  width:260px;
+  border-radius:10px;
+}
+.stats h2,h3{margin:5px;}
+#achievements{margin-top:30px;}
+.coin{
+  position:absolute;
+  color:gold;
+  font-weight:bold;
+  animation:float 1s ease-out forwards;
+}
+@keyframes float{
+  0%{opacity:1;transform:translateY(0);}
+  100%{opacity:0;transform:translateY(-60px);}
+}let score = 0, gems = 0, level = 1;
+let clickPower = 1, autoClick = 0, factories = 0, pets = 0;
+let powerCost = 10, autoCost = 50, factoryCost = 500, petCost = 200;
+
+const scoreText = document.getElementById("score");
+const gemsText = document.getElementById("gems");
+const levelText = document.getElementById("level");
+const clickSound = document.getElementById("clickSound");
+
+function update(){
+  scoreText.innerText = Math.floor(score);
+  gemsText.innerText = gems;
+  levelText.innerText = Math.floor(score/500)+1;
+
+  document.getElementById("powerCost").innerText = powerCost;
+  document.getElementById("autoCost").innerText = autoCost;
+  document.getElementById("factoryCost").innerText = factoryCost;
+  document.getElementById("petCost").innerText = petCost;
+
+  checkAchievements();
+}
+
+document.getElementById("clickBtn").onclick = function(e){
+  score += clickPower;
+  if(Math.random()<0.05){gems++;}
+  clickSound.play();
+  spawnCoin(e);
+  update();
+  save();
+}
+
+function spawnCoin(e){
+  let coin = document.createElement("div");
+  coin.className="coin";
+  coin.innerText="+"+clickPower;
+  coin.style.left=(window.innerWidth/2)+"px";
+  coin.style.top=(window.innerHeight/2)+"px";
+  document.body.appendChild(coin);
+  setTimeout(()=>coin.remove(),1000);
+}
+
+// Shop functions
+function buyPower(){if(score>=powerCost){score-=powerCost;clickPower++;powerCost=Math.floor(powerCost*1.6);update();save();}}
+function buyAuto(){if(score>=autoCost){score-=autoCost;autoClick++;autoCost=Math.floor(autoCost*2);update();save();}}
+function buyFactory(){if(score>=factoryCost){score-=factoryCost;factories++;factoryCost=Math.floor(factoryCost*2.5);update();save();}}
+function buyPet(){if(score>=petCost){score-=petCost;pets++;clickPower+=2;petCost=Math.floor(petCost*2);update();save();}}
+
+// Prestige
+function prestige(){if(score>=10000){let bonus=Math.floor(score/10000);gems+=bonus;score=0;clickPower=1;autoClick=0;factories=0;pets=0;alert("⭐ Prestige! You gained "+bonus+" gems");update();save();}}
+
+// Achievements
+function checkAchievements(){
+  if(score>=100){document.getElementById("ach1").innerText="
