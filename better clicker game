@@ -1,215 +1,189 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Ultimate Clicker V3</title>
+<title>Capybara Clicker</title>
 <style>
-body{
-  font-family: Arial, sans-serif;
-  margin:0;
-  padding:0;
-  overflow-x:hidden;
-  background: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxMTc3M3wwfDF8c2VhcmNofDF8fGdhbGF4eXxlbnwwfHx8fDE2MzkzNzU1NDA&ixlib=rb-4.0.3&q=80&w=1080') no-repeat center center fixed;
-  background-size: cover;
-  color:white;
-  text-align:center;
+body, html {
+  margin:0; padding:0; overflow:hidden; font-family:Arial, sans-serif;
+  background: linear-gradient(to top, #1e3c72, #2a5298);
+  color:white; text-align:center;
 }
-
-h1{margin-top:20px;}
-button{
-  padding:20px 40px;
-  font-size:24px;
-  border:none;
-  border-radius:12px;
-  background:#22c55e;
-  color:white;
-  cursor:pointer;
-  margin-top:10px;
-}
-
-button:hover{background:#16a34a;}
-.shop{
-  margin-top:30px;
-}
-.upgrade{
-  background:rgba(30,41,59,0.8);
-  padding:15px;
-  margin:10px auto;
-  width:260px;
-  border-radius:10px;
-}
-.stats h2,h3{margin:5px;}
-#achievements{margin-top:30px;}
-.coin{
-  position:absolute;
-  color:gold;
-  font-weight:bold;
-  animation:float 1s ease-out forwards;
-}
-#lego{
-  width:100px;
-  margin:30px auto;
-  cursor:pointer;
-  transition: transform 0.2s;
-}
-#lego:active{transform: scale(0.9);}
-@keyframes float{
-  0%{opacity:1;transform:translateY(0);}
-  100%{opacity:0;transform:translateY(-60px);}
-}
+h1 { margin-top: 20px; }
+#coinDisplay { font-size: 2em; margin: 10px; }
+#capybara { cursor:pointer; width:200px; transition: transform 0.1s; }
+#capybara:active { transform: scale(0.9); }
+#upgrades, #leaderboard { margin-top: 20px; }
+.upgradeBtn { margin:5px; padding:10px 20px; font-size:16px; border:none; border-radius:8px; cursor:pointer; }
+#bgCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; }
+.slot { margin:5px; display:inline-block; padding:5px 10px; background:rgba(255,255,255,0.2); border-radius:5px; cursor:pointer; }
+.slot.selected { background:gold; color:black; }
 </style>
 </head>
-
 <body>
-<h1>💰 Ultimate Clicker V3</h1>
-<div class="stats">
-  <h2>Coins: <span id="score">0</span></h2>
-  <h3>💎 Gems: <span id="gems">0</span></h3>
-  <h3>⭐ Level: <span id="level">1</span></h3>
+
+<canvas id="bgCanvas"></canvas>
+
+<h1>Capybara Clicker 🐾</h1>
+<div id="coinDisplay">Coins: 0</div>
+<img id="capybara" src="https://i.imgur.com/Rr9m8xX.png" alt="Capybara">
+
+<div id="upgrades">
+<h2>Upgrades</h2>
+<button class="upgradeBtn" id="clickPowerBtn">Upgrade Click Power (+1) - Cost: 10</button>
+<button class="upgradeBtn" id="autoClickBtn">Buy Auto-Clicker (+1/sec) - Cost: 50</button>
 </div>
 
-<button id="clickBtn">CLICK</button>
-
-<img id="lego" src="https://upload.wikimedia.org/wikipedia/commons/7/7e/LEGO_logo.svg" alt="Lego">
-
-<div class="shop">
-<h2>🏪 Shop</h2>
-
-<div class="upgrade">
-<p>⬆️ Click Power (+1)</p>
-<p>Cost: <span id="powerCost">10</span></p>
-<button onclick="buyPower()">Buy</button>
+<div id="leaderboard">
+<h2>Leaderboard</h2>
+<ol id="leaders"></ol>
+<button onclick="saveScore()">Save My Score</button>
 </div>
 
-<div class="upgrade">
-<p>🤖 Auto Clicker (+1/sec)</p>
-<p>Cost: <span id="autoCost">50</span></p>
-<button onclick="buyAuto()">Buy</button>
+<div id="capybaraSelect">
+<h2>Unlocked Capybaras</h2>
+<span class="slot selected" data-src="https://i.imgur.com/Rr9m8xX.png">Classic</span>
+<span class="slot" data-src="https://i.imgur.com/8nZuHqZ.png">Cool Shades</span>
+<span class="slot" data-src="https://i.imgur.com/yo9nJ8b.png">Royal</span>
 </div>
-
-<div class="upgrade">
-<p>🏭 Factory (+10/sec)</p>
-<p>Cost: <span id="factoryCost">500</span></p>
-<button onclick="buyFactory()">Buy</button>
-</div>
-
-<div class="upgrade">
-<p>🐱 Pet Helper (+2 click power)</p>
-<p>Cost: <span id="petCost">200</span></p>
-<button onclick="buyPet()">Buy</button>
-</div>
-
-<div class="upgrade">
-<button onclick="prestige()">⭐ Prestige</button>
-</div>
-</div>
-
-<div id="achievements">
-<h2>🏆 Achievements</h2>
-<p id="ach1">❌ 100 Coins</p>
-<p id="ach2">❌ 1000 Coins</p>
-<p id="ach3">❌ 10 Gems</p>
-</div>
-
-<audio id="clickSound" src="https://www.soundjay.com/buttons/sounds/button-16.mp3"></audio>
 
 <script>
-let score = 0, gems = 0, level = 1;
-let clickPower = 1, autoClick = 0, factories = 0, pets = 0;
-let powerCost = 10, autoCost = 50, factoryCost = 500, petCost = 200;
+// =================== Background Animation ===================
+const bgCanvas = document.getElementById('bgCanvas');
+const bgCtx = bgCanvas.getContext('2d');
+bgCanvas.width = window.innerWidth;
+bgCanvas.height = window.innerHeight;
+let particles = [];
+for(let i=0;i<150;i++){
+  particles.push({x:Math.random()*bgCanvas.width, y:Math.random()*bgCanvas.height, r:Math.random()*2+1, dx:(Math.random()-0.5), dy:(Math.random()-0.5)});
+}
+function drawBg(){
+  bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+  for(let p of particles){
+    bgCtx.beginPath();
+    bgCtx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    bgCtx.fillStyle='rgba(255,255,255,0.5)';
+    bgCtx.fill();
+    p.x+=p.dx; p.y+=p.dy;
+    if(p.x<0)p.x=bgCanvas.width;if(p.x>bgCanvas.width)p.x=0;
+    if(p.y<0)p.y=bgCanvas.height;if(p.y>bgCanvas.height)p.y=0;
+  }
+  requestAnimationFrame(drawBg);
+}
+drawBg();
 
-const scoreText = document.getElementById("score");
-const gemsText = document.getElementById("gems");
-const levelText = document.getElementById("level");
-const clickSound = document.getElementById("clickSound");
-const lego = document.getElementById("lego");
+// =================== Game Logic ===================
+let coins = 0;
+let clickPower = 1;
+let autoClickers = 0;
+let coinDisplay = document.getElementById('coinDisplay');
+let capybara = document.getElementById('capybara');
 
-function update(){
-  scoreText.innerText = Math.floor(score);
-  gemsText.innerText = gems;
-  levelText.innerText = Math.floor(score/500)+1;
-
-  document.getElementById("powerCost").innerText = powerCost;
-  document.getElementById("autoCost").innerText = autoCost;
-  document.getElementById("factoryCost").innerText = factoryCost;
-  document.getElementById("petCost").innerText = petCost;
-
-  checkAchievements();
+function updateDisplay(){ coinDisplay.textContent = 'Coins: '+coins; unlockCapybaras(); updateUpgrades(); }
+function unlockCapybaras(){
+  if(coins>=50){document.querySelector('[data-src="https://i.imgur.com/8nZuHqZ.png"]').style.display='inline-block';}
+  if(coins>=200){document.querySelector('[data-src="https://i.imgur.com/yo9nJ8b.png"]').style.display='inline-block';}
 }
 
-function spawnCoin(x=window.innerWidth/2, y=window.innerHeight/2){
-  let coin = document.createElement("div");
-  coin.className="coin";
-  coin.innerText="+"+clickPower;
-  coin.style.left=x+"px";
-  coin.style.top=y+"px";
-  document.body.appendChild(coin);
-  setTimeout(()=>coin.remove(),1000);
+// Click on capybara
+capybara.onclick = function(){
+  coins += clickPower;
+  spawnCoinEffect();
+  updateDisplay();
+  saveGame();
 }
 
-document.getElementById("clickBtn").onclick = function(e){
-  score += clickPower;
-  if(Math.random()<0.05){gems++;}
-  clickSound.play();
-  spawnCoin();
-  update();
-  save();
+// Upgrade buttons
+const clickBtn = document.getElementById('clickPowerBtn');
+const autoBtn = document.getElementById('autoClickBtn');
+let clickCost = 10;
+let autoCost = 50;
+
+clickBtn.onclick = function(){
+  if(coins>=clickCost){
+    coins-=clickCost;
+    clickPower++;
+    clickCost = Math.floor(clickCost*1.5);
+    updateDisplay();
+    saveGame();
+  }
 }
 
-// Lego touch bonus
-lego.onclick = function(e){
-  score += clickPower * 5;
-  spawnCoin(e.clientX, e.clientY);
-  update();
-  save();
+autoBtn.onclick = function(){
+  if(coins>=autoCost){
+    coins-=autoCost;
+    autoClickers++;
+    autoCost = Math.floor(autoCost*2);
+    updateDisplay();
+    saveGame();
+  }
 }
 
-// Shop functions
-function buyPower(){if(score>=powerCost){score-=powerCost;clickPower++;powerCost=Math.floor(powerCost*1.6);update();save();}}
-function buyAuto(){if(score>=autoCost){score-=autoCost;autoClick++;autoCost=Math.floor(autoCost*2);update();save();}}
-function buyFactory(){if(score>=factoryCost){score-=factoryCost;factories++;factoryCost=Math.floor(factoryCost*2.5);update();save();}}
-function buyPet(){if(score>=petCost){score-=petCost;pets++;clickPower+=2;petCost=Math.floor(petCost*2);update();save();}}
+// Auto-clicker
+setInterval(()=>{coins+=autoClickers; updateDisplay(); saveGame();},1000);
 
-// Prestige
-function prestige(){if(score>=10000){let bonus=Math.floor(score/10000);gems+=bonus;score=0;clickPower=1;autoClick=0;factories=0;pets=0;alert("⭐ Prestige! You gained "+bonus+" gems");update();save();}}
-
-// Achievements
-function checkAchievements(){
-  if(score>=100){document.getElementById("ach1").innerText="✅ 100 Coins";}
-  if(score>=1000){document.getElementById("ach2").innerText="✅ 1000 Coins";}
-  if(gems>=10){document.getElementById("ach3").innerText="✅ 10 Gems";}
+// Coin effect
+function spawnCoinEffect(){
+  let span = document.createElement('span');
+  span.textContent = '+'+clickPower;
+  span.style.position='absolute';
+  span.style.left=(capybara.offsetLeft+50+Math.random()*50)+'px';
+  span.style.top=(capybara.offsetTop+20+Math.random()*20)+'px';
+  span.style.color='gold';
+  span.style.fontWeight='bold';
+  document.body.appendChild(span);
+  let top = parseInt(span.style.top);
+  let anim = setInterval(()=>{ top-=2; span.style.top = top+'px'; span.style.opacity -=0.05; if(top<0){span.remove(); clearInterval(anim);}},20);
 }
 
-// Auto-clickers and factories
-setInterval(()=>{score+=autoClick;score+=factories*10;update();save();},1000);
+// Hotbar selection of capybara
+let capybaraSlots = document.querySelectorAll('#capybaraSelect .slot');
+capybaraSlots.forEach(slot=>{
+  slot.onclick = function(){
+    capybaraSlots.forEach(s=>s.classList.remove('selected'));
+    slot.classList.add('selected');
+    capybara.src = slot.dataset.src;
+  }
+});
+
+// Leaderboard
+function saveScore(){
+  let name = prompt("Enter your name:");
+  if(!name) return;
+  let leaderboard = JSON.parse(localStorage.getItem('capyLeaderboard')||'[]');
+  leaderboard.push({name:name, score:coins});
+  leaderboard.sort((a,b)=>b.score-a.score);
+  if(leaderboard.length>10) leaderboard=leaderboard.slice(0,10);
+  localStorage.setItem('capyLeaderboard',JSON.stringify(leaderboard));
+  updateLeaderboard();
+}
+
+function updateLeaderboard(){
+  let leaders = document.getElementById('leaders');
+  leaders.innerHTML='';
+  let leaderboard = JSON.parse(localStorage.getItem('capyLeaderboard')||'[]');
+  leaderboard.forEach(entry=>{
+    let li = document.createElement('li');
+    li.textContent = entry.name + ': '+entry.score;
+    leaders.appendChild(li);
+  });
+}
+updateLeaderboard();
 
 // Save/load
-function save(){
-  localStorage.setItem("score",score);
-  localStorage.setItem("gems",gems);
-  localStorage.setItem("clickPower",clickPower);
-  localStorage.setItem("autoClick",autoClick);
-  localStorage.setItem("factories",factories);
-  localStorage.setItem("pets",pets);
-  localStorage.setItem("powerCost",powerCost);
-  localStorage.setItem("autoCost",autoCost);
-  localStorage.setItem("factoryCost",factoryCost);
-  localStorage.setItem("petCost",petCost);
+function saveGame(){
+  localStorage.setItem('capyCoins', coins);
+  localStorage.setItem('capyClickPower', clickPower);
+  localStorage.setItem('capyAuto', autoClickers);
 }
-function load(){
-  score=Number(localStorage.getItem("score"))||0;
-  gems=Number(localStorage.getItem("gems"))||0;
-  clickPower=Number(localStorage.getItem("clickPower"))||1;
-  autoClick=Number(localStorage.getItem("autoClick"))||0;
-  factories=Number(localStorage.getItem("factories"))||0;
-  pets=Number(localStorage.getItem("pets"))||0;
-  powerCost=Number(localStorage.getItem("powerCost"))||10;
-  autoCost=Number(localStorage.getItem("autoCost"))||50;
-  factoryCost=Number(localStorage.getItem("factoryCost"))||500;
-  petCost=Number(localStorage.getItem("petCost"))||200;
-  update();
+function loadGame(){
+  coins = Number(localStorage.getItem('capyCoins')||0);
+  clickPower = Number(localStorage.getItem('capyClickPower')||1);
+  autoClickers = Number(localStorage.getItem('capyAuto')||0);
+  updateDisplay();
 }
-load();
+loadGame();
 </script>
+
 </body>
 </html>
