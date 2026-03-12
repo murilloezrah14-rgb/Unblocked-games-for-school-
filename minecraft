@@ -1,1 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Eaglecraft V4</title>
+<style>
+body { margin:0; overflow:hidden; }
+canvas { display:block; }
+#hotbar {
+  position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+  display:flex; background:rgba(0,0,0,0.5); padding:5px; border-radius:5px;
+}
+.slot {
+  width:40px; height:40px; margin:2px; border:2px solid white;
+  display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.3);
+}
+.slot.selected { border-color:yellow; }
+#instructions {
+  position:absolute; top:10px; left:10px; color:white; background:rgba(0,0,0,0.5);
+  padding:10px; border-radius:5px; font-family:Arial;
+}
+</style>
+</head>
+<body>
+<div id="instructions">
+Click to lock mouse. WASD = Move | Space = Jump | Left Click = Place Block | Right Click = Remove Block | 1-9 = Hotbar
+</div>
+<div id="hotbar">
+  <div class="slot selected" data-type="grass">🌱</div>
+  <div class="slot" data-type="dirt">🟫</div>
+  <div class="slot" data-type="stone">🪨</div>
+  <div class="slot" data-type="wood">🪵</div>
+  <div class="slot" data-type="sand">🏖️</div>
+  <div class="slot" data-type="water">💧</div>
+  <div class="slot" data-type="lava">🔥</div>
+  <div class="slot" data-type="gold">💰</div>
+  <div class="slot" data-type="coal">⚫</div>
+</div>
 
+<script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.154.0/examples/js/controls/PointerLockControls.js"></script>
+
+<script>
+// ==================
+// Scene & Camera
+// ==================
+let scene = new THREE.Scene();
+scene.background = new THREE.CubeTextureLoader()
+  .setPath('https://threejs.org/examples/textures/cube/skybox/')
+  .load(['px.jpg','nx.jpg','py.jpg','ny.jpg','pz.jpg','nz.jpg']);
+
+let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 5000);
+let renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+let controls = new THREE.PointerLockControls(camera, document.body);
+document.body.addEventListener('click', ()=>controls.lock());
+
+// Lighting
+scene.add(new THREE.AmbientLight(0xffffff,0.7));
+let dirLight = new THREE.DirectionalLight(0xffffff,0.8);
+dirLight.position.set(50,50,50);
+scene.add(dirLight);
+
+// ==================
+// Textures
+// ==================
+let loader = new THREE.TextureLoader();
+let textures = {
+  grass: loader.load('https://i.imgur.com/m4f4gZ6.png'),
+  dirt: loader.load('https://i.imgur.com/3cKjV2y.png'),
+  stone: loader.load('https://i.imgur.com/vu9Lrfp.png'),
+  wood: loader.load('https://i.imgur.com/yKp7UBn.png'),
+  sand: loader.load('https://i.imgur.com/hpMZP5N.png'),
+  water: loader.load('https://i.imgur.com/6b7G3NQ.png'),
+  lava: loader.load('https://i.imgur.com/h7AxC2n.png'),
+  gold: loader.load('https://i.imgur.com/XK6HUnZ.png'),
+  coal: loader.load('https://i.imgur.com/2bXfPO9.png')
+};
+
+// ==================
+// Hotbar
+// ==================
+let hotbarSlots = document.querySelectorAll('.slot');
+let selectedType = 'grass';
+hotbarSlots.forEach((slot,i)=>{
+  slot.addEventListener('click', ()=>{
+    hotbarSlots.forEach(s=>s.classList.remove('selected'));
+    slot.classList.add('selected');
+    selectedType = slot.dataset.type;
+  });
+});
+document.addEventListener('keydown', e=>{
+  if(e.key>0 && e.key<=hotbarSlots.length){
+    hotbarSlots.forEach(s=>s.classList.remove('selected'));
+    hotbarSlots[e.key-1].classList.add('selected');
+    selectedType = hotbarSlots[e.key-1].dataset.type;
+  }
+});
+
+// ==================
+// Blocks
+// ==================
+let blocks = [];
+let blockSize = 2;
+function addBlock(x,y,z,type='grass'){
+  let mat = new THREE.MeshLambertMaterial({map:textures[type]});
+  let geo = new THREE.BoxGeometry(blockSize,blockSize,blockSize);
+  let mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x*blockSize, y*blockSize, z*blockSize);
+  scene.add(mesh);
+  blocks.push(mesh);
+}
+
+// ==================
+// Terrain
+// ==================
+for(let x=-15;x<15;x++){
+  for(let z=-15;z<15;z++){
+    let height = Math.floor(Math.random()*3)+1;
+    for(let y=0;y<height;y++){
+      addBlock(x,y,z, y==height-1?'grass':'dirt');
+    }
+  }
+}
+
+// ==================
+// Player
+// ==================
+let player = {x:0,y:10,z:20,vy:0,onGround:false};
+camera.position.set(player.x,player.y,player.z);
+
+// Movement
+let keys={};
+document.addEventListener('keydown', e=>keys[e.key.toLowerCase()]=true);
+document.addEventListener('keyup', e=>keys[e.key.toLowerCase()]=false);
+
+// ==================
+// Raycaster
+// ==================
+let raycaster = new THREE.Raycaster();
+document.addEventListener('mousedown', (event)=>{
+  raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+  let intersects = raycaster.intersectObjects(blocks);
+  if(intersects.length>0){
+    let intersect = intersects[0];
+    if(event.button===2){ // remove
+      scene.remove(intersect.object);
+      blocks.splice(blocks.indexOf(intersect.object),1);
+    } else { // place
+      let normal = intersect.face.normal;
+      let newBlock = new THREE.Mesh(new THREE.BoxGeometry(blockSize,blockSize,blockSize),
+        new THREE.MeshLambertMaterial({map:textures[selectedType]}));
+      newBlock.position.copy(intersect.object.position).add(normal);
+      scene.add(newBlock);
+      blocks.push(newBlock);
+    }
+  }
+});
+document.addEventListener('contextmenu', e=>e.preventDefault());
+
+// ==================
+// Animate / Game Loop
+// ==================
+let clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  let delta = clock.getDelta();
+
+  let velocity = new THREE.Vector3();
+  let speed = 5;
+  if(keys['w']) velocity.z -= speed*delta;
+  if(keys['s']) velocity.z += speed*delta;
+  if(keys['a']) velocity.x -= speed*delta;
+  if(keys['d']) velocity.x += speed*delta;
+
+  velocity.applyEuler(camera.rotation);
+  controls.getObject().position.add(velocity);
+
+  // Gravity
+  player.vy -= 9.8*delta;
+  controls.getObject().position.y += player.vy*delta;
+  if(controls.getObject().position.y<5){player.vy=0; controls.getObject().position.y=5; player.onGround=true;}
+  else player.onGround=false;
+
+  if(keys[' '] && player.onGround){player.vy=5; player.onGround=false;}
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
