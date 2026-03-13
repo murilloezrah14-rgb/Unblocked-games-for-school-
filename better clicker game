@@ -2,36 +2,53 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Capybara Clicker</title>
+<title>Ultimate Capybara Clicker</title>
 <style>
-body, html {
-  margin:0; padding:0; overflow:hidden; font-family:Arial, sans-serif;
-  background: linear-gradient(to top, #1e3c72, #2a5298);
-  color:white; text-align:center;
-}
-h1 { margin-top: 20px; }
-#coinDisplay { font-size: 2em; margin: 10px; }
-#capybara { cursor:pointer; width:200px; transition: transform 0.1s; }
-#capybara:active { transform: scale(0.9); }
-#upgrades, #leaderboard { margin-top: 20px; }
-.upgradeBtn { margin:5px; padding:10px 20px; font-size:16px; border:none; border-radius:8px; cursor:pointer; }
-#bgCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; }
-.slot { margin:5px; display:inline-block; padding:5px 10px; background:rgba(255,255,255,0.2); border-radius:5px; cursor:pointer; }
-.slot.selected { background:gold; color:black; }
+body, html {margin:0; padding:0; overflow:hidden; font-family:Arial, sans-serif; background:#1e3c72;}
+#bgCanvas {position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1;}
+h1 {text-align:center; margin:10px; color:white;}
+#coinDisplay {text-align:center; font-size:2em; color:white;}
+#capybara {display:block; margin:20px auto; width:200px; cursor:pointer; transition: transform 0.1s;}
+#capybara:active {transform:scale(0.9);}
+#uiTop {position:absolute; top:10px; right:10px; display:flex; gap:10px;}
+.button {padding:10px 15px; background:rgba(255,255,255,0.2); color:white; border:none; border-radius:5px; cursor:pointer;}
+#upgrades {text-align:center; margin-top:20px;}
+.upgradeBtn {margin:5px; padding:10px 20px; font-size:16px; border:none; border-radius:8px; cursor:pointer;}
+#leaderboard {text-align:center; margin-top:20px;}
+#leaders {list-style:none; padding-left:0; color:white;}
+#capybaraSkins .slot, #backgroundSkins .slot {margin:5px; display:inline-block; padding:5px 10px; background:rgba(255,255,255,0.2); border-radius:5px; cursor:pointer;}
+.slot.selected {background:gold; color:black;}
 </style>
 </head>
 <body>
 
 <canvas id="bgCanvas"></canvas>
 
-<h1>Capybara Clicker 🐾</h1>
+<h1>Ultimate Capybara Clicker 🐾</h1>
 <div id="coinDisplay">Coins: 0</div>
 <img id="capybara" src="https://i.imgur.com/Rr9m8xX.png" alt="Capybara">
+
+<div id="uiTop">
+  <div id="backgroundSkins">
+    <span class="slot selected" data-bg="galaxy">Galaxy</span>
+    <span class="slot" data-bg="forest">Forest</span>
+    <span class="slot" data-bg="river">River</span>
+  </div>
+  <div id="capybaraSkins">
+    <span class="slot selected" data-src="https://i.imgur.com/Rr9m8xX.png">Classic</span>
+    <span class="slot" data-src="https://i.imgur.com/8nZuHqZ.png">Shades</span>
+    <span class="slot" data-src="https://i.imgur.com/yo9nJ8b.png">Royal</span>
+    <span class="slot" data-src="https://i.imgur.com/Xk1aM0h.png">Galaxy</span>
+    <span class="slot" data-src="https://i.imgur.com/Y7xC3Qm.png">Pirate</span>
+  </div>
+</div>
 
 <div id="upgrades">
 <h2>Upgrades</h2>
 <button class="upgradeBtn" id="clickPowerBtn">Upgrade Click Power (+1) - Cost: 10</button>
 <button class="upgradeBtn" id="autoClickBtn">Buy Auto-Clicker (+1/sec) - Cost: 50</button>
+<button class="upgradeBtn" id="multiplierBtn">Buy Multiplier (x2) - Cost: 200</button>
+<button class="upgradeBtn" id="prestigeBtn">Prestige (Reset for x2 coins) - Need 1,000,000</button>
 </div>
 
 <div id="leaderboard">
@@ -40,15 +57,8 @@ h1 { margin-top: 20px; }
 <button onclick="saveScore()">Save My Score</button>
 </div>
 
-<div id="capybaraSelect">
-<h2>Unlocked Capybaras</h2>
-<span class="slot selected" data-src="https://i.imgur.com/Rr9m8xX.png">Classic</span>
-<span class="slot" data-src="https://i.imgur.com/8nZuHqZ.png">Cool Shades</span>
-<span class="slot" data-src="https://i.imgur.com/yo9nJ8b.png">Royal</span>
-</div>
-
 <script>
-// =================== Background Animation ===================
+// ========== Background Particles ==========
 const bgCanvas = document.getElementById('bgCanvas');
 const bgCtx = bgCanvas.getContext('2d');
 bgCanvas.width = window.innerWidth;
@@ -57,8 +67,10 @@ let particles = [];
 for(let i=0;i<150;i++){
   particles.push({x:Math.random()*bgCanvas.width, y:Math.random()*bgCanvas.height, r:Math.random()*2+1, dx:(Math.random()-0.5), dy:(Math.random()-0.5)});
 }
+let currentBG='galaxy';
 function drawBg(){
   bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+  if(currentBG=='galaxy'){bgCtx.fillStyle='#000'; bgCtx.fillRect(0,0,bgCanvas.width,bgCanvas.height);}
   for(let p of particles){
     bgCtx.beginPath();
     bgCtx.arc(p.x,p.y,p.r,0,Math.PI*2);
@@ -72,84 +84,87 @@ function drawBg(){
 }
 drawBg();
 
-// =================== Game Logic ===================
-let coins = 0;
-let clickPower = 1;
-let autoClickers = 0;
+// ========== Game Logic ==========
+let coins = Number(localStorage.getItem('coins')||0);
+let clickPower = Number(localStorage.getItem('clickPower')||1);
+let autoClickers = Number(localStorage.getItem('autoClickers')||0);
+let multiplier = Number(localStorage.getItem('multiplier')||1);
 let coinDisplay = document.getElementById('coinDisplay');
 let capybara = document.getElementById('capybara');
 
-function updateDisplay(){ coinDisplay.textContent = 'Coins: '+coins; unlockCapybaras(); updateUpgrades(); }
-function unlockCapybaras(){
+function updateDisplay(){
+  coinDisplay.textContent = 'Coins: '+coins;
+  unlockSkins();
+  updateUpgrades();
+}
+function unlockSkins(){
   if(coins>=50){document.querySelector('[data-src="https://i.imgur.com/8nZuHqZ.png"]').style.display='inline-block';}
   if(coins>=200){document.querySelector('[data-src="https://i.imgur.com/yo9nJ8b.png"]').style.display='inline-block';}
+  if(coins>=1000000000){document.querySelector('[data-src="https://i.imgur.com/RICHCAPY.png"]').style.display='inline-block';}
 }
 
-// Click on capybara
-capybara.onclick = function(){
-  coins += clickPower;
+// Click capybara
+capybara.onclick=function(){
+  coins += clickPower*multiplier;
   spawnCoinEffect();
   updateDisplay();
   saveGame();
 }
 
-// Upgrade buttons
-const clickBtn = document.getElementById('clickPowerBtn');
-const autoBtn = document.getElementById('autoClickBtn');
-let clickCost = 10;
-let autoCost = 50;
-
-clickBtn.onclick = function(){
-  if(coins>=clickCost){
-    coins-=clickCost;
-    clickPower++;
-    clickCost = Math.floor(clickCost*1.5);
-    updateDisplay();
-    saveGame();
-  }
+// ========== Upgrades ==========
+let clickCost = 10, autoCost=50, multCost=200, prestigeCost=1000000;
+document.getElementById('clickPowerBtn').onclick=function(){
+  if(coins>=clickCost){coins-=clickCost; clickPower++; clickCost=Math.floor(clickCost*1.5); updateDisplay(); saveGame();}
+}
+document.getElementById('autoClickBtn').onclick=function(){
+  if(coins>=autoCost){coins-=autoCost; autoClickers++; autoCost=Math.floor(autoCost*2); updateDisplay(); saveGame();}
+}
+document.getElementById('multiplierBtn').onclick=function(){
+  if(coins>=multCost){coins-=multCost; multiplier*=2; multCost=Math.floor(multCost*3); updateDisplay(); saveGame();}
+}
+document.getElementById('prestigeBtn').onclick=function(){
+  if(coins>=prestigeCost){coins=0; clickPower=1; autoClickers=0; multiplier*=2; alert('Prestige activated! Coins will now multiply faster!'); updateDisplay(); saveGame();}
 }
 
-autoBtn.onclick = function(){
-  if(coins>=autoCost){
-    coins-=autoCost;
-    autoClickers++;
-    autoCost = Math.floor(autoCost*2);
-    updateDisplay();
-    saveGame();
-  }
-}
+// Auto-clickers
+setInterval(()=>{coins+=autoClickers*multiplier; updateDisplay(); saveGame();},1000);
 
-// Auto-clicker
-setInterval(()=>{coins+=autoClickers; updateDisplay(); saveGame();},1000);
-
-// Coin effect
+// Coin animation
 function spawnCoinEffect(){
   let span = document.createElement('span');
-  span.textContent = '+'+clickPower;
+  span.textContent = '+'+(clickPower*multiplier);
   span.style.position='absolute';
   span.style.left=(capybara.offsetLeft+50+Math.random()*50)+'px';
   span.style.top=(capybara.offsetTop+20+Math.random()*20)+'px';
-  span.style.color='gold';
-  span.style.fontWeight='bold';
+  span.style.color='gold'; span.style.fontWeight='bold';
   document.body.appendChild(span);
-  let top = parseInt(span.style.top);
-  let anim = setInterval(()=>{ top-=2; span.style.top = top+'px'; span.style.opacity -=0.05; if(top<0){span.remove(); clearInterval(anim);}},20);
+  let top=parseInt(span.style.top);
+  let anim = setInterval(()=>{ top-=2; span.style.top=top+'px'; span.style.opacity-=0.05; if(top<0){span.remove(); clearInterval(anim);}},20);
 }
 
-// Hotbar selection of capybara
-let capybaraSlots = document.querySelectorAll('#capybaraSelect .slot');
+// ========== Skins ==========
+let capybaraSlots=document.querySelectorAll('#capybaraSkins .slot');
 capybaraSlots.forEach(slot=>{
-  slot.onclick = function(){
+  slot.onclick=function(){
     capybaraSlots.forEach(s=>s.classList.remove('selected'));
     slot.classList.add('selected');
     capybara.src = slot.dataset.src;
   }
 });
 
+// Background selection
+let bgSlots=document.querySelectorAll('#backgroundSkins .slot');
+bgSlots.forEach(slot=>{
+  slot.onclick=function(){
+    bgSlots.forEach(s=>s.classList.remove('selected'));
+    slot.classList.add('selected');
+    currentBG=slot.dataset.bg;
+  }
+});
+
 // Leaderboard
 function saveScore(){
-  let name = prompt("Enter your name:");
-  if(!name) return;
+  let name = prompt("Enter your name:"); if(!name) return;
   let leaderboard = JSON.parse(localStorage.getItem('capyLeaderboard')||'[]');
   leaderboard.push({name:name, score:coins});
   leaderboard.sort((a,b)=>b.score-a.score);
@@ -157,14 +172,11 @@ function saveScore(){
   localStorage.setItem('capyLeaderboard',JSON.stringify(leaderboard));
   updateLeaderboard();
 }
-
 function updateLeaderboard(){
-  let leaders = document.getElementById('leaders');
-  leaders.innerHTML='';
-  let leaderboard = JSON.parse(localStorage.getItem('capyLeaderboard')||'[]');
+  let leaders=document.getElementById('leaders'); leaders.innerHTML='';
+  let leaderboard=JSON.parse(localStorage.getItem('capyLeaderboard')||'[]');
   leaderboard.forEach(entry=>{
-    let li = document.createElement('li');
-    li.textContent = entry.name + ': '+entry.score;
+    let li=document.createElement('li'); li.textContent=entry.name+': '+entry.score;
     leaders.appendChild(li);
   });
 }
@@ -172,18 +184,14 @@ updateLeaderboard();
 
 // Save/load
 function saveGame(){
-  localStorage.setItem('capyCoins', coins);
-  localStorage.setItem('capyClickPower', clickPower);
-  localStorage.setItem('capyAuto', autoClickers);
+  localStorage.setItem('coins',coins);
+  localStorage.setItem('clickPower',clickPower);
+  localStorage.setItem('autoClickers',autoClickers);
+  localStorage.setItem('multiplier',multiplier);
 }
-function loadGame(){
-  coins = Number(localStorage.getItem('capyCoins')||0);
-  clickPower = Number(localStorage.getItem('capyClickPower')||1);
-  autoClickers = Number(localStorage.getItem('capyAuto')||0);
-  updateDisplay();
-}
+function loadGame(){coins=Number(localStorage.getItem('coins')||0); clickPower=Number(localStorage.getItem('clickPower')||1); autoClickers=Number(localStorage.getItem('autoClickers')||0); multiplier=Number(localStorage.getItem('multiplier')||1); updateDisplay();}
 loadGame();
+updateDisplay();
 </script>
-
 </body>
 </html>
