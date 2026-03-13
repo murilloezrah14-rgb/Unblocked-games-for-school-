@@ -1,1 +1,284 @@
+gangbeasts-browser-v2/
+│
+├── server.js
+├── package.json
+│
+└── public/
+    ├── index.html
+    ├── style.css
+    ├── menu.js
+    ├── game.js
+    ├── physics.js
+    ├── bots.js
+    └── maps.js{
+  "name": "gangbeasts-browser-v2",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.5"
+  }
+}npm installconst express = require("express")
+const app = express()
+const http = require("http").createServer(app)
+const io = require("socket.io")(http)
 
+app.use(express.static("public"))
+
+let rooms = {}
+
+function generateCode(){
+return Math.random().toString(36).substring(2,6).toUpperCase()
+}
+
+io.on("connection", socket=>{
+
+socket.on("createRoom", ()=>{
+let code = generateCode()
+
+rooms[code] = {
+players:{}
+}
+
+socket.join(code)
+
+rooms[code].players[socket.id] = {x:300,y:200}
+
+socket.emit("roomCreated",code)
+})
+
+socket.on("joinRoom", code=>{
+
+if(!rooms[code]) return
+
+socket.join(code)
+
+rooms[code].players[socket.id] = {x:300,y:200}
+
+io.to(code).emit("updatePlayers",rooms[code].players)
+
+})
+
+socket.on("move", data=>{
+
+for(let code in rooms){
+
+if(rooms[code].players[socket.id]){
+
+rooms[code].players[socket.id]=data
+
+io.to(code).emit("updatePlayers",rooms[code].players)
+
+}
+
+}
+
+})
+
+socket.on("disconnect", ()=>{
+
+for(let code in rooms){
+
+delete rooms[code].players[socket.id]
+
+io.to(code).emit("updatePlayers",rooms[code].players)
+
+}
+
+})
+
+})
+
+http.listen(3000,()=>{
+console.log("Server running on port 3000")
+})<!DOCTYPE html>
+<html>
+<head>
+<title>Gang Fighters Online</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div id="menu">
+
+<h1>Gang Fighters</h1>
+
+<button onclick="botMode()">Fight Bots</button>
+
+<button onclick="showMultiplayer()">Multiplayer</button>
+
+</div>
+
+<div id="multiplayer" style="display:none">
+
+<button onclick="createRoom()">Create Game</button>
+
+<input id="roomCode" placeholder="Enter Code">
+
+<button onclick="joinRoom()">Join Game</button>
+
+<p id="roomDisplay"></p>
+
+</div>
+
+<canvas id="game"></canvas>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script src="menu.js"></script>
+<script src="maps.js"></script>
+<script src="physics.js"></script>
+<script src="bots.js"></script>
+<script src="game.js"></script>
+
+</body>
+</html>body{
+margin:0;
+font-family:Arial;
+background:#111;
+color:white;
+text-align:center;
+}
+
+button{
+padding:12px 20px;
+margin:10px;
+font-size:18px;
+border:none;
+border-radius:8px;
+background:#444;
+color:white;
+cursor:pointer;
+}
+
+canvas{
+display:none;
+background:#222;
+}function showMultiplayer(){
+document.getElementById("menu").style.display="none"
+document.getElementById("multiplayer").style.display="block"
+}
+
+function botMode(){
+startGame("bots")
+}
+
+function createRoom(){
+socket = io()
+
+socket.emit("createRoom")
+
+socket.on("roomCreated",code=>{
+document.getElementById("roomDisplay").innerText="Room Code: "+code
+startGame("online",code)
+})
+}
+
+function joinRoom(){
+
+let code = document.getElementById("roomCode").value
+
+socket = io()
+
+socket.emit("joinRoom",code)
+
+startGame("online",code)
+
+}const canvas = document.getElementById("game")
+const ctx = canvas.getContext("2d")
+
+canvas.width = window.innerWidth
+canvas.height = window.innerHeight
+
+let players={}
+let bots=[]
+let socket
+
+function startGame(mode,code){
+
+document.getElementById("multiplayer").style.display="none"
+
+canvas.style.display="block"
+
+if(mode==="online"){
+
+socket.on("updatePlayers",data=>{
+players=data
+})
+
+}
+
+if(mode==="bots"){
+
+bots = spawnBots()
+
+}
+
+loop()
+
+}
+
+function drawPlayers(){
+
+for(let id in players){
+
+let p=players[id]
+
+ctx.fillStyle="lime"
+
+ctx.fillRect(p.x,p.y,40,40)
+
+}
+
+}
+
+function drawBots(){
+
+bots.forEach(b=>{
+updateBot(b)
+ctx.fillStyle="red"
+ctx.fillRect(b.x,b.y,40,40)
+})
+
+}
+
+function loop(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height)
+
+drawMap(ctx)
+
+drawPlayers()
+
+drawBots()
+
+requestAnimationFrame(loop)
+
+}function spawnBots(){
+
+return[
+{x:500,y:200},
+{x:700,y:200}
+]
+
+}
+
+function updateBot(bot){
+
+bot.x += Math.random()*4-2
+
+}function drawMap(ctx){
+
+ctx.fillStyle="#555"
+
+ctx.fillRect(0,window.innerHeight-80,window.innerWidth,80)
+
+}let keys={}
+
+document.addEventListener("keydown",e=>keys[e.key]=true)
+document.addEventListener("keyup",e=>keys[e.key]=false)npm install
+npm starthttp://localhost:3000
