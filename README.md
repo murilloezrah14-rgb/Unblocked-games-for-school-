@@ -1,2 +1,1 @@
-# Unblocked-games-for-school-
-Games
+if you got in troulbe it is not my falut it is yours thank you have fun reach out to me if any troulbes the clicker games are weird so dont play it if you dont like games that are bug but it is really good
